@@ -1,6 +1,8 @@
 #!/util/python3/bin/python
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 
-from django_twilio.decorators import twilio_view
+# from django_twilio.decorators import twilio_view
 from twilio.twiml.messaging_response import MessagingResponse
 
 from main_app import contribution_database as database
@@ -18,7 +20,11 @@ Created: 06/18/2018
 """
 
 
-@twilio_view  # Visit link for more info https://www.twilio.com/blog/2014/04/building-a-simple-sms-message-application-with-twilio-and-django-2.html
+@csrf_exempt
+# @twilio_view  # Visit link for more info https://www.twilio.com/blog/2014/04/building-a-simple-sms-message-application-with-twilio-and-django-2.html
+# NOTE: twilio_view decorator is deprecated due to no support for Django > 5.0
+# TODO: Implement RequestValidator from twilio.request_validator
+# TODO: Sample implementation for RequestValidator: @twilio_view impl -> https://github.com/rdegges/django-twilio/blob/master/django_twilio/decorators.py
 def incoming_sms(request):
     # Get the text message the user sent to our Twilio number
     message_body = request.POST.get("Body", None)
@@ -71,7 +77,8 @@ def incoming_sms(request):
     if is_valid:
         website_database.save_contributions_to_csv(station_id)
 
-    return str(resp)
+    # TODO: send sms asynchronously.
+    return HttpResponse(str(resp), content_type="application/xml")
 
 
 def parse_sms(message):
