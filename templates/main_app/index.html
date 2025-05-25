@@ -1,0 +1,23 @@
+{% extends "main_app/base.html" %}
+
+{% block body_block %}
+{% load static %}
+
+<div class="jumbotron">
+  <h1>CrowdHydrology</h1>
+</div>
+
+<a href="{% url 'main_app:generate-graphs' %}" class="btn btn-primary" role="button">Generate Graphs & CSVs (5 min wait)</a>
+<br><br>
+<a href="https://plot.ly/~wafflez180/16/" target="_blank">contribution_amount_pie_chart</a><br>
+<a href="https://plot.ly/~wafflez180/20" target="_blank">contribution_dates_line_graph</a><br>
+<a href="{% url 'main_app:download' %}?path=stats/station_contribution_dict.csv" target="_blank">station_contribution_dict.csv</a><br>
+<a href="{% url 'main_app:download' %}?path=stats/contrib_per_person_file.csv" target="_blank">contrib_per_person_file.csv</a><br>
+<a href="{% url 'main_app:download' %}?path=stats/contrib_per_station_file.csv" target="_blank">contrib_per_station_file.csv</a>
+<br>
+<br>
+<br>
+<iframe width="900" height="800" frameborder="0" scrolling="no" src="//plot.ly/~wafflez180/16.embed"></iframe>
+<iframe width="900" height="800" frameborder="0" scrolling="no" src="//plot.ly/~wafflez180/20.embed"></iframe>
+
+{% endblock %}
