@@ -148,6 +148,9 @@ AUTH_PASSWORD_VALIDATORS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://casumarzu.caset.buffalo.edu",
     "http://casumarzu.caset.buffalo.edu",
+    "https://casumarzu.caset.buffalo.edu:8040",
+    "http://casumarzu.caset.buffalo.edu:8040"
+
 ]
 
 
