@@ -146,11 +146,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    ".crowdhydrology.com",
-    ".geology.buffalo.edu",
-    ".buffalo.edu",
-    "casumarzu.caset.buffalo.edu"
+    "https://casumarzu.caset.buffalo.edu",
+    "http://casumarzu.caset.buffalo.edu",
 ]
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/
