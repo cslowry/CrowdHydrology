@@ -50,6 +50,7 @@ ALLOWED_HOSTS = (
         ".geology.buffalo.edu",
         ".buffalo.edu",
         "128.205.25.32",
+        "casumarzu.caset.buffalo.edu"
     ]
     if not DEBUG
     else ["*"]
@@ -148,6 +149,7 @@ CSRF_TRUSTED_ORIGINS = [
     ".crowdhydrology.com",
     ".geology.buffalo.edu",
     ".buffalo.edu",
+    "casumarzu.caset.buffalo.edu"
 ]
 
 # Internationalization
