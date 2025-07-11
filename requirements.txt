@@ -32,7 +32,7 @@ Deprecated==1.2.18
 detect-secrets==1.5.0
 distlib==0.3.9
 distro==1.9.0
-Django==5.1.10
+Django==5.2.2
 django-phonenumber-field==8.1.0
 executing==2.2.0
 filelock==3.18.0
