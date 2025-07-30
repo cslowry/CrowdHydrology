@@ -34,3 +34,11 @@ repos:
     stages:
       - commit
       - push
+
+  #  Pip-Audit: For versions and vulnerability checks.
+  #  https://pypi.org/project/pip-audit/
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.9.0
+    hooks:
+      -   id: pip-audit
+          args: ["-r", "requirements.txt"]

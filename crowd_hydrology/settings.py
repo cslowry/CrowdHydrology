@@ -50,6 +50,7 @@ ALLOWED_HOSTS = (
         ".geology.buffalo.edu",
         ".buffalo.edu",
         "128.205.25.32",
+        "casumarzu.caset.buffalo.edu"
     ]
     if not DEBUG
     else ["*"]
@@ -77,6 +78,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware"
 ]
 
 ROOT_URLCONF = "crowd_hydrology.urls"
@@ -142,6 +144,14 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://casumarzu.caset.buffalo.edu",
+    "http://casumarzu.caset.buffalo.edu",
+    "https://casumarzu.caset.buffalo.edu:8040",
+    "http://casumarzu.caset.buffalo.edu:8040"
+
 ]
 
 
