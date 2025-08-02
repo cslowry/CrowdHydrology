@@ -1,0 +1,5 @@
+train: ./model/data/train/images
+val: ./model/data/test/images
+nc: 2
+names: ['Gauge', 'StationLabel']
+

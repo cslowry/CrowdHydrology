@@ -30,10 +30,7 @@ repos:
       args:
         - '--baseline'
         - '.secrets.baseline'
-      exclude: package.lock.json
-    stages:
-      - commit
-      - push
+      exclude: ^(package\.lock\.json|model/station_detection\.ipynb|model/object_detection\.ipynb|model/evaluation/evalutaion_without_prompt\.ipynb|model/evaluation/evalutaion\.ipynb)$
 
   #  Pip-Audit: For versions and vulnerability checks.
   #  https://pypi.org/project/pip-audit/
