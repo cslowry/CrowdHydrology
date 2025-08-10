@@ -78,11 +78,9 @@ class StationLabelPreprocessor(AbstractPreprocessor):
 class GaugePreprocessor(AbstractPreprocessor):
     def _output_enhance(self, img: Image.Image):
         img = self._resize_by_height(img, 600)
-        # img = self.to_grayscale(img)
         img = self.enhance_contrast(img, factor=3)
         img = self.sharpen(img)
         img = np.array(img)
-        # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         return img
 
     def preprocess(self, img: Any) -> np.ndarray:
@@ -117,8 +115,8 @@ class GaugePreprocessor(AbstractPreprocessor):
         # marked = self.mark_waterline(cleaned, row)
 
         # 6) Normalize and return
-        marked_norm = marked.astype(np.float32) / 255.0
-        return marked_norm
+        # marked_norm = marked.astype(np.float32) / 255.0
+        return np.array(marked)
 
     def _resize_by_height(self, img: Image.Image, target_h: int) -> Image.Image:
         w, h = img.size
