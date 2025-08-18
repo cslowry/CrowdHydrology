@@ -34,8 +34,8 @@ class AbstractPreprocessor(ABC):
     def resize(self, img: Image.Image, size: tuple[int, int]) -> Image.Image:
         return img.resize(size, Image.LANCZOS)
 
-    def denoise(self, img: Image.Image) -> Image.Image:
-        return img.filter(ImageFilter.MedianFilter(size=3))
+    def denoise(self, img: Image.Image, size: int = 3) -> Image.Image:
+        return img.filter(ImageFilter.MedianFilter(size=size))
 
     def adaptive_threshold(self, img: Image.Image, window_size=9) -> Image.Image:
         arr = img if type(img) is np.array else np.array(img)
@@ -55,20 +55,19 @@ class StationLabelPreprocessor(AbstractPreprocessor):
         # Initial conversion
         img = self.to_pil(img)
 
-        # Basic preprocessing
         img = self.to_grayscale(img)
+        # img = img.filter(ImageFilter.MedianFilter(9))
+        # Basic preprocessing
+        # img = self.denoise(img, 5)  # Remove noise after contrast
 
         # resize
-        img = self.resize(img, (400, 300))  # Wider size for better text aspect ratio
+        # img = self.resize(img, (400, 300))  # Wider size for better text aspect ratio
 
         # Enhancement sequence
-        img = self.enhance_contrast(img, factor=2.5)  # Increased contrast
-        img = self.denoise(img)  # Remove noise after contrast
-        img = self.equalize(img)  # Balance the brightness
+        # img = self.equalize(img)  # Balance the brightness
+        # img = self.adaptive_threshold(img, window_size=15)
+        img = self.enhance_contrast(img, factor=4)  # Increased contrast
         img = self.sharpen(img)  # Make text crisper
-
-        # Thresholding with modified parameters
-        img = self.adaptive_threshold(img)
 
         # Final normalization
         img = self.normalize(img)
@@ -106,7 +105,7 @@ class GaugePreprocessor(AbstractPreprocessor):
         row, cleaned = self.detect_waterline(arr_gray)
 
         # 5) Mark that waterline on an RGB version
-        # rgb = cv2.cvtColor(arr_gray, cv2.COLOR_GRAY2BGR)  # pylint: disable=no-member
+        # rgb = cv2.cvtColor(arr_gray, cv2.COLOR_GRAY2BGR)
 
         original_img = self._output_enhance(original_img)
 
@@ -115,8 +114,8 @@ class GaugePreprocessor(AbstractPreprocessor):
         # marked = self.mark_waterline(cleaned, row)
 
         # 6) Normalize and return
-        # marked_norm = marked.astype(np.float32) / 255.0
-        return np.array(marked)
+        marked = marked.astype(np.float32) / 255.0
+        return marked
 
     def _resize_by_height(self, img: Image.Image, target_h: int) -> Image.Image:
         w, h = img.size
