@@ -15,6 +15,12 @@ from rest_framework.status import HTTP_200_OK
 from twilio.twiml.messaging_response import MessagingResponse
 
 from main_app import contribution_database as database
+from main_app.contribution_database import (
+    get_station_by_id,
+    hash_phone_number,
+    save_invalid_contribution,
+    save_valid_contribution,
+)
 from main_app.models import Station
 from model.detection import ContributionImageDetector, GeminiClient
 from model.exceptions import (
@@ -106,8 +112,11 @@ def incoming_sms(request):
     resp = MessagingResponse()
 
     num_media = int(request.POST.get("NumMedia", 0))
+    phone_number = request.POST.get("From", None)
+    hashed_phone_number = hash_phone_number(phone_number)
     if num_media == 1:  # if media received.
         try:
+            logger.info("Received media MMS.")
             # Handle incoming MMS with one media item
             mms = IncomingMMS(
                 media_url=request.POST.get("MediaUrl0"),
@@ -124,18 +133,21 @@ def incoming_sms(request):
                 raise TwilioMediaException()
 
             media = Image.open(BytesIO(media.content))
-
+            logger.info("Detecting image in MMS media.")
             detected = detector.detect(media)  # Detect the ROIs
 
             # Extract ROIs.
             station_label_roi = detector.get_station_label_roi(detected[0])
             gauge_roi = detector.get_gauge_roi(detected[0])
+            logger.info("Detected and extracted ROIs from the image media.")
 
             station_label_roi = slp.preprocess(station_label_roi)
             gauge_roi = gp.preprocess(gauge_roi)
 
+            logger.info("Extracting Gauge and Station Label Values.")
+
             # Extract reading values.
-            llm_client = GeminiClient(secret_key="")
+            llm_client = GeminiClient(secret_key=settings.GEMINI_API_KEY)
 
             logger.warning(
                 "Extracting gauge and station label reading from the image..."
@@ -144,14 +156,31 @@ def incoming_sms(request):
                 PROMPT_TEXT, gauge_roi, station_label_roi
             )
             logger.success(
-                "Successfully extracted gauge and station label reading from the image."
+                f"Successfully extracted gauge and station label reading from the image. "
+                f"Gauge Reading: {contribution.gauge_reading.gauge_reading}, "
+                f"Station Label: {contribution.station_label.station_id}"
             )
             if not contribution.station_label.is_valid_station_label:
+                save_invalid_contribution(hashed_phone_number, mms.media_url)
                 raise InvalidBoxesException(INVALID_STATION_LABEL_EXCEPTION)
             if not contribution.gauge_reading.is_valid_gauge:
+                save_invalid_contribution(hashed_phone_number, mms.media_url)
                 raise InvalidBoxesException(INVALID_GAUGE_READING_EXCEPTION)
 
             # Save Contribution
+            station = get_station_by_id(contribution.station_label.station_id)
+            saved_contribution = save_valid_contribution(
+                hashed_phone_number,
+                station,
+                contribution.gauge_reading.gauge_reading,
+            )
+            logger.info(
+                f"Successfully saved contribution to the database. Contribution ID: {saved_contribution.id}"
+            )
+            resp.message(
+                "Thanks for contributing to CrowdHydrology research and being a citizen scientist!"
+            )
+            return HttpResponse(str(resp), content_type="application/xml")
 
         except InvalidBoxesException as e:  # Image not visible
             resp.message(
@@ -173,12 +202,9 @@ def incoming_sms(request):
             resp.message(CONTRIBUTION_EXCEPTION_MESSAGE)
             return HttpResponse(str(resp), content_type="application/xml")
 
-        return HttpResponse(str(resp), content_type="application/xml")
-
     """Handle from text message."""
     # Get the text message the user sent to our Twilio number
     message_body = request.POST.get("Body", None)
-    phone_number = request.POST.get("From", None)
 
     is_valid, station_id, water_height, temperature, error_msg = parse_sms(message_body)
 

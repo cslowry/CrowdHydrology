@@ -29,6 +29,9 @@ class AbstractSecretsHandler(ABC):
     # Database
     DB_NAME: str = field(init=False)
 
+    # Gemini
+    GEMINI_API_KEY: str = field(init=False)
+
     def __init__(self):
         self._obtain_all_secrets()
 
