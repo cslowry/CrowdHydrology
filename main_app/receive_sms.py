@@ -112,8 +112,10 @@ def incoming_sms(request):
     resp = MessagingResponse()
 
     num_media = int(request.POST.get("NumMedia", 0))
-    phone_number = request.POST.get("From", None)
+    phone_number = request.POST.get("From")
+    message_sid = request.POST.get("SmsSid")
     hashed_phone_number = hash_phone_number(phone_number)
+    mms = None
     if num_media == 1:  # if media received.
         try:
             logger.info("Received media MMS.")
@@ -161,10 +163,8 @@ def incoming_sms(request):
                 f"Station Label: {contribution.station_label.station_id}"
             )
             if not contribution.station_label.is_valid_station_label:
-                save_invalid_contribution(hashed_phone_number, mms.media_url)
                 raise InvalidBoxesException(INVALID_STATION_LABEL_EXCEPTION)
             if not contribution.gauge_reading.is_valid_gauge:
-                save_invalid_contribution(hashed_phone_number, mms.media_url)
                 raise InvalidBoxesException(INVALID_GAUGE_READING_EXCEPTION)
 
             # Save Contribution
@@ -183,6 +183,9 @@ def incoming_sms(request):
             return HttpResponse(str(resp), content_type="application/xml")
 
         except InvalidBoxesException as e:  # Image not visible
+            save_invalid_contribution(
+                hashed_phone_number, mms.media_url if mms else message_sid
+            )
             resp.message(
                 "It seems that the image is not clear or is invalid. Please try again."
             )
@@ -190,6 +193,9 @@ def incoming_sms(request):
             return HttpResponse(str(resp), content_type="application/xml")
 
         except ValueError:
+            save_invalid_contribution(
+                hashed_phone_number, mms.media_url if mms else message_sid
+            )
             resp.message(
                 "The media type is not supported. Please send a JPEG, JPG, or PNG image."
             )
