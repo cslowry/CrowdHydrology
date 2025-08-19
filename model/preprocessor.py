@@ -8,7 +8,7 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 class AbstractPreprocessor(ABC):
     @abstractmethod
-    def preprocess(self, img: Any) -> np.ndarray:
+    def preprocess(self, img: Any) -> Image:
         pass
 
     def to_pil(self, img: Any) -> Image.Image:
@@ -51,7 +51,7 @@ class AbstractPreprocessor(ABC):
 
 
 class StationLabelPreprocessor(AbstractPreprocessor):
-    def preprocess(self, img: Any) -> np.ndarray:
+    def preprocess(self, img: Any) -> Image:
         # Initial conversion
         img = self.to_pil(img)
 
@@ -70,7 +70,7 @@ class StationLabelPreprocessor(AbstractPreprocessor):
         img = self.sharpen(img)  # Make text crisper
 
         # Final normalization
-        img = self.normalize(img)
+        # img = self.normalize(img)
         return img
 
 
@@ -82,7 +82,7 @@ class GaugePreprocessor(AbstractPreprocessor):
         img = np.array(img)
         return img
 
-    def preprocess(self, img: Any) -> np.ndarray:
+    def preprocess(self, img: Any) -> Image:
         # 1) PIL → Grayscale → proportional resize
         pil = self.to_pil(img)
         original_img = pil.copy()
@@ -114,8 +114,8 @@ class GaugePreprocessor(AbstractPreprocessor):
         # marked = self.mark_waterline(cleaned, row)
 
         # 6) Normalize and return
-        marked = marked.astype(np.float32) / 255.0
-        return marked
+        # marked = marked.astype(np.float32) / 255.0
+        return Image.fromarray(marked)
 
     def _resize_by_height(self, img: Image.Image, target_h: int) -> Image.Image:
         w, h = img.size
