@@ -27,6 +27,9 @@ TWILIO_AUTH_TOKEN = __env.get_secret("TWILIO_AUTH_TOKEN")
 PLOTLY_USERNAME = __env.get_secret("PLOTLY_USERNAME")
 PLOTLY_API_KEY = __env.get_secret("PLOTLY_API_KEY")
 
+GEMINI_API_KEY = __env.get_secret("GEMINI_API_KEY")
+
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
@@ -50,7 +53,7 @@ ALLOWED_HOSTS = (
         ".geology.buffalo.edu",
         ".buffalo.edu",
         "128.205.25.32",
-        "casumarzu.caset.buffalo.edu"
+        "casumarzu.caset.buffalo.edu",
     ]
     if not DEBUG
     else ["*"]
@@ -78,7 +81,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware"
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
 
 ROOT_URLCONF = "crowd_hydrology.urls"
@@ -150,8 +153,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://casumarzu.caset.buffalo.edu",
     "http://casumarzu.caset.buffalo.edu",
     "https://casumarzu.caset.buffalo.edu:8040",
-    "http://casumarzu.caset.buffalo.edu:8040"
-
+    "http://casumarzu.caset.buffalo.edu:8040",
 ]
 
 

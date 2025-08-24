@@ -7,14 +7,16 @@ from main_app.models import InvalidSMSContribution, SMSContribution, Sponsor, St
 
 class SMSContributionAdmin(admin.ModelAdmin):
     search_fields = [
+        "id",
         "contributor_id",
-        "station",
+        "station__id",
         "water_height",
         "temperature",
         "date_received",
     ]
     list_filter = ["station"]
     list_display = [
+        "id",
         "contributor_id",
         "water_height",
         "temperature",
