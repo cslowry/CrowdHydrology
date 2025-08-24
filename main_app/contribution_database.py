@@ -71,3 +71,12 @@ def get_station_by_id(station_id) -> Union[Station, None]:
 def hash_phone_number(phone_number: str) -> str:
     hashed_phone_number = str(uuid.uuid3(uuid.NAMESPACE_OID, phone_number[-10:]))
     return hashed_phone_number
+
+
+def get_success_contribution_message(contribution: SMSContribution):
+    return (
+        f"Thanks for contributing to CrowdHydrology research and being a citizen scientist! "
+        f"Your contribution was saved with the following details: \n"
+        f"Station ID: {contribution.station.id}\n"
+        f"Water Height: {contribution.water_height} ft"
+    )

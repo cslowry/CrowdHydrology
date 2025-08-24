@@ -1,34 +1,17 @@
 #!/util/python3/bin/python
 from enum import Enum
-from io import BytesIO
 
-import requests
-from django.conf import settings
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from loguru import logger
-from PIL import Image
 from pydantic import BaseModel
-from rest_framework.status import HTTP_200_OK
-
-# from django_twilio.decorators import twilio_view
 from twilio.twiml.messaging_response import MessagingResponse
 
+from crowd_hydrology.settings import TWILIO_CLIENT, queue
 from main_app import contribution_database as database
-from main_app.contribution_database import (
-    get_station_by_id,
-    hash_phone_number,
-    save_invalid_contribution,
-    save_valid_contribution,
-)
+from main_app.contribution_database import hash_phone_number, save_invalid_contribution
 from main_app.models import Station
-from model.detection import ContributionImageDetector, GeminiClient
-from model.exceptions import (
-    INVALID_GAUGE_READING_EXCEPTION,
-    INVALID_STATION_LABEL_EXCEPTION,
-    InvalidBoxesException,
-)
-from model.preprocessor import GaugePreprocessor, StationLabelPreprocessor
+from main_app.tasks import process_mms_image
 
 """
 Functions to receive and parse sms.
@@ -62,41 +45,6 @@ class TwilioMediaException(Exception):
         super.__init__("Failed to retrieve the media. Please try again.")
 
 
-PROMPT_TEXT = """
-    Task: You are given two images in a single prompt.
-
-    Image 1: Staff Gauge
-
-    - Decide if this is a clear staff-gauge photo.
-    - If it’s not a staff gauge, or if it’s too unclear for a confident reading (confidence < 0.70),
-    - set "is_valid_gauge": false and stop.
-    - Otherwise, calculate the exact water-level reading at the red line.
-    - The gauge reading is always a positive floating-point number in 2 decimal places.
-
-    Gauge Details:
-    - Major stripes: longer, labeled marks (e.g. 1.0, 1.1, …).
-    - Minor stripes: shorter, evenly spaced between two majors.
-
-    Step-by-Step Instructions:
-    - Detect two consecutive, fully visible major stripes and note their labels (e.g. 1.0 & 1.1).
-    - Count the minor stripes between them; compute
-    minor_unit = (major2_label − major1_label) ÷ minor_count_between.
-    - Locate the red waterline.
-    - Identify the first major stripe above that line; record its label M.
-    - Count how many minor stripes lie between the waterline and stripe M; call that n.
-    - Compute reading = M + (n × minor_unit).
-
-    Image 2: Station Label
-    - Analyze the image to verify if it is a valid station label.
-    - A valid station label contains a station ID that matches one of the predefined station IDs.
-    - If not valid, respond with "is_valid_station_label": false and "station_id": null.
-    - If valid, set "is_valid_station_label": true and return the "station_id".
-
-    Critical Consideration:
-    - If the image is beyond the ability to analyze, unreadable,
-    or if the confidence of the output is below 40%, mark it invalid.
-"""
-
 CONTRIBUTION_EXCEPTION_MESSAGE = (
     "An error occurred while processing your contribution. Please try again later."
 )
@@ -112,96 +60,41 @@ def incoming_sms(request):
     resp = MessagingResponse()
 
     num_media = int(request.POST.get("NumMedia", 0))
-    phone_number = request.POST.get("From")
+    phone_number = request.POST.get("From")  # Sender's phone number
+    self_number = request.POST.get("To")  # Our Twilio Number
     message_sid = request.POST.get("SmsSid")
-    hashed_phone_number = hash_phone_number(phone_number)
-    mms = None
     if num_media == 1:  # if media received.
         try:
             logger.info("Received media MMS.")
-            # Handle incoming MMS with one media item
+            # Queue the MMS processing task
             mms = IncomingMMS(
                 media_url=request.POST.get("MediaUrl0"),
                 media_type=request.POST.get("MediaContentType0"),
             )
-            # Get gauge measurement.
-            slp, gp = StationLabelPreprocessor(), GaugePreprocessor()
-            detector = ContributionImageDetector(
-                f"{settings.BASE_DIR}/model/models/best.pt"
+
+            # Enqueue job to process image.
+            queue.enqueue(
+                process_mms_image,
+                mms.media_url,
+                phone_number,
+                self_number,
+                TWILIO_CLIENT,
             )
 
-            media = requests.get(mms.media_url)
-            if media.status_code != HTTP_200_OK:
-                raise TwilioMediaException()
-
-            media = Image.open(BytesIO(media.content))
-            logger.info("Detecting image in MMS media.")
-            detected = detector.detect(media)  # Detect the ROIs
-
-            # Extract ROIs.
-            station_label_roi = detector.get_station_label_roi(detected[0])
-            gauge_roi = detector.get_gauge_roi(detected[0])
-            logger.info("Detected and extracted ROIs from the image media.")
-
-            station_label_roi = slp.preprocess(station_label_roi)
-            gauge_roi = gp.preprocess(gauge_roi)
-
-            logger.info("Extracting Gauge and Station Label Values.")
-
-            # Extract reading values.
-            llm_client = GeminiClient(secret_key=settings.GEMINI_API_KEY)
-
-            logger.warning(
-                "Extracting gauge and station label reading from the image..."
-            )
-            contribution = llm_client.get_gauge_and_station_label_reading(
-                PROMPT_TEXT, gauge_roi, station_label_roi
-            )
-            logger.success(
-                f"Successfully extracted gauge and station label reading from the image. "
-                f"Gauge Reading: {contribution.gauge_reading.gauge_reading}, "
-                f"Station Label: {contribution.station_label.station_id}"
-            )
-            if not contribution.station_label.is_valid_station_label:
-                raise InvalidBoxesException(INVALID_STATION_LABEL_EXCEPTION)
-            if not contribution.gauge_reading.is_valid_gauge:
-                raise InvalidBoxesException(INVALID_GAUGE_READING_EXCEPTION)
-
-            # Save Contribution
-            station = get_station_by_id(contribution.station_label.station_id)
-            saved_contribution = save_valid_contribution(
-                hashed_phone_number,
-                station,
-                contribution.gauge_reading.gauge_reading,
-            )
-            logger.info(
-                f"Successfully saved contribution to the database. Contribution ID: {saved_contribution.id}"
-            )
+            # Send immediate response
             resp.message(
-                "Thanks for contributing to CrowdHydrology research and being a citizen scientist!"
+                "We're processing your image. You'll receive a confirmation message shortly."
             )
-            return HttpResponse(str(resp), content_type="application/xml")
-
-        except InvalidBoxesException as e:  # Image not visible
-            save_invalid_contribution(
-                hashed_phone_number, mms.media_url if mms else message_sid
-            )
-            resp.message(
-                "It seems that the image is not clear or is invalid. Please try again."
-            )
-            logger.error(f"Error: {e.message}, ")
             return HttpResponse(str(resp), content_type="application/xml")
 
         except ValueError:
             save_invalid_contribution(
-                hashed_phone_number, mms.media_url if mms else message_sid
+                hash_phone_number(phone_number),
+                request.POST.get("MediaUrl0", message_sid),
             )
             resp.message(
                 "The media type is not supported. Please send a JPEG, JPG, or PNG image."
             )
-            return HttpResponse(str(resp), content_type="application/xml")
-        except TwilioMediaException as e:
-            resp.message(str(e))
             return HttpResponse(str(resp), content_type="application/xml")
         except Exception as e:
             logger.error(e)

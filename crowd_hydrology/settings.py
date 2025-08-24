@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 
 import os
 
+import django_rq
+from twilio.rest import Client as TwilioClient
+
 # from crowd_hydrology.secrets_handler import DotEnvSecretsHandler
 from crowd_hydrology.secrets_handler import YamlEnvSecretsHandler
 
@@ -22,6 +25,7 @@ __env = YamlEnvSecretsHandler(yaml_file_path="secrets.yaml")
 # TEST ACCOUNT CREDENTIALS
 TWILIO_ACCOUNT_SID = __env.get_secret("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = __env.get_secret("TWILIO_AUTH_TOKEN")
+TWILIO_CLIENT = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
 # Plotly Credentials
 PLOTLY_USERNAME = __env.get_secret("PLOTLY_USERNAME")
@@ -71,6 +75,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "main_app",
     "localflavor",
+    "django_rq",
 ]
 
 MIDDLEWARE = [
@@ -183,3 +188,16 @@ STATIC_FILES = [
 
 MEDIA_ROOT = MEDIA_DIR
 MEDIA_URL = "/media/"
+
+
+# Redis and RQ settings
+RQ_QUEUES = {
+    "default": {
+        "HOST": "localhost",
+        "PORT": 6379,
+        "DB": 0,
+        "DEFAULT_TIMEOUT": 360,
+    },
+}
+
+queue = django_rq.get_queue("default")
