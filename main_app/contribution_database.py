@@ -130,8 +130,6 @@ def generate_contribution_otp():
 
 def map_otp_to_contribution(otp: int, contribution_id: int, ttl=86400) -> None:
     """Map OTP to contribution ID with expiration time."""
-
-    # TODO: set expire time in environment variable.
     redis_conn.setex(name=otp, time=ttl, value=contribution_id)
 
 
