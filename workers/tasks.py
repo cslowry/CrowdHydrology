@@ -7,10 +7,13 @@ from PIL import Image
 from rest_framework.status import HTTP_200_OK
 from twilio.rest import Client
 
+from crowd_hydrology.settings import __env
 from main_app.contribution_database import (
+    generate_contribution_otp,
     get_station_by_id,
     get_success_contribution_message,
     hash_phone_number,
+    map_otp_to_contribution,
     save_invalid_contribution,
     save_valid_contribution,
 )
@@ -118,11 +121,15 @@ def process_mms_image(
             station,
             contribution.gauge_reading.gauge_reading,
         )
+        otp = generate_contribution_otp()
+        map_otp_to_contribution(
+            otp=otp, contribution_id=contribution.id, ttl=__env.CONTRIBUTION_OTP_TTL
+        )
 
         twilio_client.messages.create(
             from_=twilio_number,
             to=senders_phone_number,
-            body=get_success_contribution_message(contribution),
+            body=get_success_contribution_message(contribution, otp),
         )
 
     except InvalidBoxesException:

@@ -15,7 +15,6 @@ import os
 import django_rq
 from twilio.rest import Client as TwilioClient
 
-# from crowd_hydrology.secrets_handler import DotEnvSecretsHandler
 from crowd_hydrology.secrets_handler import YamlEnvSecretsHandler
 
 # Environment Variables Handler
@@ -201,3 +200,5 @@ RQ_QUEUES = {
 }
 
 queue = django_rq.get_queue("default")
+
+redis_conn = django_rq.get_connection()

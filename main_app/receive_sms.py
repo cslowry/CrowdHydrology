@@ -1,4 +1,5 @@
 #!/util/python3/bin/python
+import re
 from enum import Enum
 
 from django.http import HttpResponse
@@ -7,11 +8,21 @@ from loguru import logger
 from pydantic import BaseModel
 from twilio.twiml.messaging_response import MessagingResponse
 
-from crowd_hydrology.settings import TWILIO_CLIENT, queue
+from crowd_hydrology.settings import TWILIO_CLIENT, __env, queue
 from main_app import contribution_database as database
-from main_app.contribution_database import hash_phone_number, save_invalid_contribution
+from main_app.contribution_database import (
+    generate_contribution_otp,
+    get_contribution_by_otp,
+    get_station_by_id,
+    get_success_contribution_message,
+    hash_phone_number,
+    map_otp_to_contribution,
+    save_invalid_contribution,
+    update_sms_contribution,
+)
+from main_app.exceptions import OTPExpiredException
 from main_app.models import Station
-from main_app.tasks import process_mms_image
+from workers.tasks import process_mms_image
 
 """
 Functions to receive and parse sms.
@@ -101,51 +112,87 @@ def incoming_sms(request):
             resp.message(CONTRIBUTION_EXCEPTION_MESSAGE)
             return HttpResponse(str(resp), content_type="application/xml")
 
-    """Handle from text message."""
     # Get the text message the user sent to our Twilio number
     message_body = request.POST.get("Body", None)
 
-    is_valid, station_id, water_height, temperature, error_msg = parse_sms(message_body)
+    """Handle from fallback update message."""
 
-    if is_valid:
-        reply_msg = "Thanks for contributing to CrowdHydrology research and being a citizen scientist!"
-        reply_msg += (
-            "\n\nCheck out the contributions at your station: http://crowdhydrology.com/charts/"
-            + str(station_id)
-            + "_dygraph.html"
+    update_regex = re.compile(
+        r"^update\s+(\d+)\s+([A-Z]+\d+)\s+(\d+(?:\.\d+)?)$", re.IGNORECASE
+    )
+    match = update_regex.match(message_body)
+    try:
+        if bool(match):
+            # get contribution ID via OTP
+            otp = match.group(1)
+            station_id = match.group(2)
+            water_height = match.group(3)
+            contribution_id = get_contribution_by_otp(otp)
+            contribution = update_sms_contribution(
+                _id=contribution_id,
+                station=get_station_by_id(station_id),
+                water_height=water_height,
+            )
+            resp.message(get_success_contribution_message(contribution, otp))
+            return HttpResponse(str(resp), content_type="application/xml")
+
+        # Handle Station doesn't exist exception.
+        """Handle from text message."""
+        is_valid, station_id, water_height, temperature, error_msg = parse_sms(
+            message_body
         )
 
-        # To reenable survey distribution, uncomment this block
-        """
-        survey_distribution = SurveyDistribution(Survey.IMPROVE_CROWDHYDROLOGY, phone_number)
-        if survey_distribution.should_send():
-            link = survey_distribution.get_link()
-            reply_msg += "\n\n" + "You can help us improve CrowdHydrology by completing this survey: " + link
-
-            # TODO: verify that survey is actually sent using callback URL before updating DB
-            survey_distribution.on_sent()
-        """
-
-        resp.message(reply_msg)
-        # TODO: Maybe randomize a funny science joke after
-
-        print("Recieved a valid sms")
-        print(
-            "\tSMS data:\n\t\tStation: ",
-            station_id,
-            "\n\t\tWater height: ",
-            water_height,
+        contribution = database.save_contribution(
+            is_valid, station_id, water_height, temperature, phone_number, message_body
         )
-    else:
-        resp.message(error_msg)
+        otp = generate_contribution_otp()
+        map_otp_to_contribution(
+            otp=otp, contribution_id=contribution.id, ttl=__env.CONTRIBUTION_OTP_TTL
+        )
+        if is_valid:
+            # reply_msg = "Thanks for contributing to CrowdHydrology research and being a citizen scientist!"
+            # reply_msg += (
+            #     "\n\nCheck out the contributions at your station: http://crowdhydrology.com/charts/"
+            #     + str(station_id)
+            #     + "_dygraph.html"
+            # )
+
+            # To reenable survey distribution, uncomment this block
+            """
+            survey_distribution = SurveyDistribution(Survey.IMPROVE_CROWDHYDROLOGY, phone_number)
+            if survey_distribution.should_send():
+                link = survey_distribution.get_link()
+                reply_msg += "\n\n" + "You can help us improve CrowdHydrology by completing this survey: " + link
+
+                # TODO: verify that survey is actually sent using callback URL before updating DB
+                survey_distribution.on_sent()
+            """
+            resp.message(get_success_contribution_message(contribution, otp))
+            # TODO: Maybe randomize a funny science joke after
+
+            print("Recieved a valid sms")
+            print(
+                "\tSMS data:\n\t\tStation: ",
+                station_id,
+                "\n\t\tWater height: ",
+                water_height,
+            )
+        else:
+            resp.message(error_msg)
+    except OTPExpiredException as e:
+        resp.message(str(e))
+    except Station.DoesNotExist:
+        resp.message("Whoopsies! Looks like station doesn't exist.")
+    except Exception:
+        resp.message(
+            "An error occurred while processing your contribution. Please try again later."
+        )
+        raise
 
     # print('STATION: '+station_id)
     # Asynchronously call to save the data to allow the reply text message to be sent immediately
     # mp.Pool().apply_async(database.save_contribution, (is_valid, station_id, water_height, temperature, phone_number, message_body))
 
-    database.save_contribution(
-        is_valid, station_id, water_height, temperature, phone_number, message_body
-    )
     # if is_valid:
     #     website_database.save_contributions_to_csv(station_id)
 
