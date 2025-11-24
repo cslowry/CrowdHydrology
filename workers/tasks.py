@@ -154,7 +154,7 @@ def process_mms_image(
         raise
 
 
-def generateStationCsvTask(path: str):
+def generate_station_csv(station_id: str, path: str = settings.STATION_DATA_DIR):
     # Ensure the directory exists
     try:
         os.makedirs(path, exist_ok=True)
@@ -163,21 +163,41 @@ def generateStationCsvTask(path: str):
         logger.error(f"Failed to create directory {path}: {e}")
         raise
 
-    stations = Station.objects.all()
+    try:
+        station = Station.objects.get(id=station_id)
+        contributions = SMSContribution.objects.filter(station=station)
 
-    for station in stations:
-        contibutions = SMSContribution.objects.filter(station__id=station.id)
         # create csv in format: Date and Time,Gage Height (ft),POSIX Stamp
-
         station_data = [
             {
                 "Date and Time": contribution.date_received,
                 "Gage Height": contribution.water_height,
                 "POSIX Stamp": int(contribution.date_received.timestamp()),
             }
-            for contribution in contibutions
+            for contribution in contributions
         ]
+
         df = pd.DataFrame(station_data)
         csv_path = f"{path}/{station.id}_data.csv"
         df.to_csv(csv_path, index=False)
         logger.info(f"Station {station.id} CSV generated at {csv_path}")
+
+    except Station.DoesNotExist:
+        logger.error(f"Station with id {station_id} does not exist.")
+    except Exception as e:
+        logger.error(f"Error generating CSV for station {station_id}: {e}")
+        raise
+
+
+def generate_all_stations_csv(path: str = settings.STATION_DATA_DIR):
+    """
+    Generates CSV files for all stations.
+    """
+    logger.info("Starting batch CSV generation for all stations.")
+    stations = Station.objects.all()
+    for station in stations:
+        try:
+            generate_station_csv(station.id, path)
+        except Exception as e:
+            logger.error(f"Failed to generate CSV for station {station.id}: {e}")
+    logger.info("Completed batch CSV generation.")

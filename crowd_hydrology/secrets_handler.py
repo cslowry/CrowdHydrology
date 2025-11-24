@@ -33,9 +33,11 @@ class AbstractSecretsHandler(ABC):
     GEMINI_API_KEY: str = field(init=False)
 
     # REDIS
-    CONTRIBUTION_OTP_TTL: str = field(
+    CONTRIBUTION_OTP_TTL: int = field(
         init=True, default=86400
     )  # time to live for contribution OTP | default: 24 hrs
+
+    STATION_DATA_DIR: str = field(init=True, default="static/station_data")
 
     def __init__(self):
         self._obtain_all_secrets()
