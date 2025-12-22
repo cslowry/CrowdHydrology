@@ -57,3 +57,23 @@ def get_data(request):
         return HttpResponseBadRequest(
             content="Error: Couldn't find a station with that ID."
         )
+
+
+def download_station_data(request, station_id):
+    filename = f"{station_id}_data.csv"
+    file_path = os.path.join(settings.STATION_DATA_DIR, filename)
+
+    # Security check to prevent directory traversal
+    if not os.path.abspath(file_path).startswith(
+        os.path.abspath(settings.STATION_DATA_DIR)
+    ):
+        raise Http404
+
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as fh:
+            response = HttpResponse(fh.read(), content_type="text/csv")
+            response[
+                "Content-Disposition"
+            ] = "attachment; filename=" + os.path.basename(file_path)
+            return response
+    raise Http404

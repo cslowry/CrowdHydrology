@@ -9,6 +9,7 @@ ngrok
 *.csv
 venv*/
 secrets.yaml
+charts/
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/django

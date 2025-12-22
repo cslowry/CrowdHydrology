@@ -12,5 +12,10 @@ urlpatterns = [
     path("generate-graphs/", graphs.generate, name="generate-graphs"),
     path("data/", views.get_data, name="get-data"),
     path("download/", views.download, name="download"),
+    path(
+        "station/<str:station_id>/",
+        views.download_station_data,
+        name="download_station_data",
+    ),
     # path('user_login/', views.user_login, name='user_login')
 ]

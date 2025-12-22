@@ -1,5 +1,6 @@
 from io import BytesIO
 
+import pandas as pd
 import requests
 from django.conf import settings
 from loguru import logger
@@ -17,6 +18,7 @@ from main_app.contribution_database import (
     save_invalid_contribution,
     save_valid_contribution,
 )
+from main_app.models import SMSContribution, Station
 from model.detection import ContributionImageDetector, GeminiClient
 from model.exceptions import (
     INVALID_GAUGE_READING_EXCEPTION,
@@ -149,3 +151,54 @@ def process_mms_image(
             body="An error occurred while processing your contribution. Please try again later.",
         )
         raise
+
+
+def generate_station_csv(station_id: str):
+    """
+    Generate CSV file for a specific station using the configured storage backend.
+
+    Args:
+        station_id: The station identifier.
+    """
+    from workers.storage.factory import get_csv_storage
+
+    try:
+        station = Station.objects.get(id=station_id)
+        contributions = SMSContribution.objects.filter(station=station)
+
+        # Create CSV data in format: Date and Time, Gage Height (ft), POSIX Stamp
+        station_data = [
+            {
+                "Date and Time": contribution.date_received,
+                "Gage Height": contribution.water_height,
+                "POSIX Stamp": int(contribution.date_received.timestamp()),
+            }
+            for contribution in contributions
+        ]
+
+        df = pd.DataFrame(station_data)
+
+        # Use storage abstraction to save CSV
+        storage = get_csv_storage()
+        csv_location = storage.save_csv(station_id, df)
+        logger.info(f"Station {station_id} CSV generated at {csv_location}")
+
+    except Station.DoesNotExist:
+        logger.error(f"Station with id {station_id} does not exist.")
+    except Exception as e:
+        logger.error(f"Error generating CSV for station {station_id}: {e}")
+        raise
+
+
+def generate_all_stations_csv():
+    """
+    Generates CSV files for all stations using the configured storage backend.
+    """
+    logger.info("Starting batch CSV generation for all stations.")
+    stations = Station.objects.all()
+    for station in stations:
+        try:
+            generate_station_csv(station.id)
+        except Exception as e:
+            logger.error(f"Failed to generate CSV for station {station.id}: {e}")
+    logger.info("Completed batch CSV generation.")

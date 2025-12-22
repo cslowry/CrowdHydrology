@@ -83,6 +83,7 @@ def update_sms_contribution(
     contribution.station = station
     contribution.water_height = water_height
     contribution.temperature = temperature
+    contribution.save()
     return contribution
 
 
@@ -137,3 +138,4 @@ def get_contribution_by_otp(otp: int):
     contribution = redis_conn.get(otp)
     if not contribution:
         raise OTPExpiredException()
+    return int(contribution)
