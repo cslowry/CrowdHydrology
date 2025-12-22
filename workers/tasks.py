@@ -1,4 +1,3 @@
-import os
 from io import BytesIO
 
 import pandas as pd
@@ -154,20 +153,20 @@ def process_mms_image(
         raise
 
 
-def generate_station_csv(station_id: str, path: str = settings.STATION_DATA_DIR):
-    # Ensure the directory exists
-    try:
-        os.makedirs(path, exist_ok=True)
-        logger.info(f"Output directory ensured at: {path}")
-    except Exception as e:
-        logger.error(f"Failed to create directory {path}: {e}")
-        raise
+def generate_station_csv(station_id: str):
+    """
+    Generate CSV file for a specific station using the configured storage backend.
+
+    Args:
+        station_id: The station identifier.
+    """
+    from workers.storage.factory import get_csv_storage
 
     try:
         station = Station.objects.get(id=station_id)
         contributions = SMSContribution.objects.filter(station=station)
 
-        # create csv in format: Date and Time,Gage Height (ft),POSIX Stamp
+        # Create CSV data in format: Date and Time, Gage Height (ft), POSIX Stamp
         station_data = [
             {
                 "Date and Time": contribution.date_received,
@@ -178,9 +177,11 @@ def generate_station_csv(station_id: str, path: str = settings.STATION_DATA_DIR)
         ]
 
         df = pd.DataFrame(station_data)
-        csv_path = f"{path}/{station.id}_data.csv"
-        df.to_csv(csv_path, index=False)
-        logger.info(f"Station {station.id} CSV generated at {csv_path}")
+
+        # Use storage abstraction to save CSV
+        storage = get_csv_storage()
+        csv_location = storage.save_csv(station_id, df)
+        logger.info(f"Station {station_id} CSV generated at {csv_location}")
 
     except Station.DoesNotExist:
         logger.error(f"Station with id {station_id} does not exist.")
@@ -189,15 +190,15 @@ def generate_station_csv(station_id: str, path: str = settings.STATION_DATA_DIR)
         raise
 
 
-def generate_all_stations_csv(path: str = settings.STATION_DATA_DIR):
+def generate_all_stations_csv():
     """
-    Generates CSV files for all stations.
+    Generates CSV files for all stations using the configured storage backend.
     """
     logger.info("Starting batch CSV generation for all stations.")
     stations = Station.objects.all()
     for station in stations:
         try:
-            generate_station_csv(station.id, path)
+            generate_station_csv(station.id)
         except Exception as e:
             logger.error(f"Failed to generate CSV for station {station.id}: {e}")
     logger.info("Completed batch CSV generation.")

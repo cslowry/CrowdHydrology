@@ -34,6 +34,9 @@ GEMINI_API_KEY = __env.get_secret("GEMINI_API_KEY")
 
 STATION_DATA_DIR = __env.get_secret("STATION_DATA_DIR")
 
+# CSV Storage Backend Configuration
+CSV_STORAGE_BACKEND = __env.get_secret("CSV_STORAGE_BACKEND")
+
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -77,11 +80,14 @@ INSTALLED_APPS = [
     "main_app",
     "localflavor",
     "django_rq",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # cors
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -89,7 +95,10 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
-
+# cors settings white-list from escrets.yaml
+CORS_ALLOWED_ORIGINS = __env.get_secret("CORS_ALLOWED_ORIGINS")
+# allow all
+# CORS_ALLOW_ALL_ORIGINS = True
 ROOT_URLCONF = "crowd_hydrology.urls"
 
 TEMPLATES = [

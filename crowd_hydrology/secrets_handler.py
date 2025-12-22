@@ -39,6 +39,11 @@ class AbstractSecretsHandler(ABC):
 
     STATION_DATA_DIR: str = field(init=True, default="static/station_data")
 
+    # CSV Storage Backend Configuration
+    CSV_STORAGE_BACKEND: str = field(init=True, default="local")
+
+    CORS_ALLOWED_ORIGINS: list[str] = field(init=True, default_factory=list)
+
     def __init__(self):
         self._obtain_all_secrets()
 
